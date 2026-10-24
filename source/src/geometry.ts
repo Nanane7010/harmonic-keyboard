@@ -1,10 +1,10 @@
 export type KeyPosition={step:number,x:number,y:number,white:boolean};
 export function keyboardGeometry(N:number,white:number[],gaps:number[],oct:number,zoom:number,octaves=2){
- const width=90*zoom,blackW=44*zoom,row=46,rows=Math.max(...gaps)-1,height=Math.max(280,rows*row+100),total=white.length*octaves*width+blackW/2+width*.35+4;
+ const width=90*zoom,blackW=44*zoom,row=46*zoom,rows=Math.max(...gaps)-1,height=Math.max(280*zoom,rows*row+100*zoom),total=white.length*octaves*width+blackW/2+width*.35+4*zoom;
  const keys:KeyPosition[]=[];
  for(let o=0;o<octaves;o++)for(let i=0;i<white.length;i++){
   const start=(o*white.length+i)*width,step=(oct+o)*N+white[i];keys.push({step,x:start+width/2,y:0,white:true});
-  for(let j=1;j<gaps[i];j++)keys.push({step:step+j,x:start+width+(j-1)*Math.min(5*zoom,width*.35/Math.max(1,gaps[i]-2)),y:(rows-j)*row+8,white:false});
+  for(let j=1;j<gaps[i];j++)keys.push({step:step+j,x:start+width+(j-1)*Math.min(5*zoom,width*.35/Math.max(1,gaps[i]-2)),y:(rows-j)*row+8*zoom,white:false});
  }
  return {width,blackW,row,rows,height,total,keys};
 }

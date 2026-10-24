@@ -2,7 +2,7 @@ import {keyboardGeometry,pitchX,bandShape} from './geometry.ts';
 import {scale} from './scale.ts';
 import {analyze,maxPrime} from './limit.ts';
 const assert=(v:boolean,m:string)=>{if(!v)throw Error(m);};
-for(const N of [5,12,31,53,120])for(const H of [2,16,128])for(const zoom of [.8,1,2])for(const oct of [-4,0,4]){
+for(const N of [5,12,31,53,120])for(const H of [2,16,128])for(const zoom of [.5,.8,1,2])for(const oct of [-4,0,4]){
  const s=scale(N,H),g=keyboardGeometry(N,s.white,s.gaps,oct,zoom);assert(g.keys.length===N*2,'all keys mapped');
  g.keys.forEach((k,i)=>{assert(k.step===oct*N+i,'pitch ordering');assert(pitchX(k.step,g.keys)===k.x,'monitor aligns with exact key centre');assert(k.x>=0&&k.x<g.total,'key within shared width');if(i)assert(k.x>g.keys[i-1].x,'monotonic pitch axis');});
  const step=oct*N+.5;assert(Math.abs(pitchX(step,g.keys)-(g.keys[0].x+g.keys[1].x)/2)<1e-8,'continuous pitch projection');
@@ -13,3 +13,11 @@ for(const b of r.bands){assert(b.index>0,'only root to non-root');const prime=Ma
 assert(r.bands.some(b=>b.limit===3&&b.ratio.p===3&&b.ratio.q===2&&b.close),'fifth shown in 3 family inside larger chord');assert(r.bands.some(b=>b.limit===5&&b.ratio.p===5&&b.ratio.q===4&&b.close),'third shown in 5 family');assert(r.bands.some(b=>b.limit===7&&b.ratio.p===7&&b.ratio.q===4&&b.close),'7/4');assert(r.bands.some(b=>b.limit===11&&b.ratio.p===11&&b.ratio.q===8&&b.close),'11/8');
 assert(bandShape(3,0,100).y0===bandShape(3,0,100).y1,'3 horizontal');assert(bandShape(5,0,100).y0>bandShape(3,0,100).y0,'5 lower');assert(bandShape(7,0,100).y1>bandShape(7,0,100).y0,'7 descends');assert(bandShape(11,0,100).y1<bandShape(11,0,100).y0,'11 ascends');assert(bandShape(13,0,100).path.includes(' C '),'13 curve');
 console.log('PASS: 135 layout configurations, exact key/monitor coordinates, all 5 prime families, root-only bands and 5 distinct shapes');
+
+for(const N of [12,19,24,31,41,53]){
+ const s=scale(N,16),full=keyboardGeometry(N,s.white,s.gaps,0,1),half=keyboardGeometry(N,s.white,s.gaps,0,.5);
+ assert(Math.abs(half.height-full.height*.5)<1e-8,'50% keyboard height');
+ assert(Math.abs(half.total-full.total*.5)<1e-8,'50% keyboard width');
+ half.keys.forEach((k,i)=>{assert(Math.abs(k.x-full.keys[i].x*.5)<1e-8&&Math.abs(k.y-full.keys[i].y*.5)<1e-8,'scaled hit positions');assert(pitchX(k.step,half.keys)===k.x,'50% monitor remains aligned');});
+}
+console.log('PASS: 50% geometry in all six EDOs, including height, hit positions and monitor alignment');
