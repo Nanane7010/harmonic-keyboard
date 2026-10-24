@@ -1,0 +1,21 @@
+import {defaultConfig,defaultWorkspace,synthesize,mod,presetShape,draftFor,registerDraft,draftValid,copyShape,capturedSteps,validateWorkspace,decodeWorkspace,clone} from './triad.ts';
+import {analyze} from './limit.ts';
+const eq=(a:unknown,b:unknown,m:string)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(m+': '+JSON.stringify(a));};
+const ok=(v:boolean,m:string)=>{if(!v)throw Error(m);};
+const c=defaultConfig(),s=synthesize(c);eq(s.steps,[0,5,10,13,18,23,28],'initial 7-note scale');eq(s.gaps,[5,5,3,5,5,5,3],'initial gaps');ok(s.goal,'goals');
+eq(['major','minor','seven-six','nine-seven'].map(id=>presetShape(id)),[[0,10,18],[0,8,18],[0,7,18],[0,11,18]],'presets');
+const d=draftFor(c.chords[0],c);d.steps=[10,18,31];d.root=31;d.dirty=true;ok(draftValid(d),'inversion valid');const inverted=registerDraft(d,c);eq(synthesize(inverted).steps,s.steps,'inversion same scale');eq(inverted.chords[0].voicingOffsets,[10,18,31],'voicing retained');eq(c.chords[0].voicingOffsets,[0,10,18],'draft never mutates committed');
+d.root=10;const newRoot=registerDraft(d,c);eq(newRoot.chords[0].voicingOffsets.map(v=>v+newRoot.chords[0].rootOffset),d.steps,'changing root preserves actual keys');
+const custom={...draftFor(c.chords[0],c),steps:[0,1,18],root:0,dirty:true};ok(!s.steps.includes(1),'new note absent before');ok(synthesize(registerDraft(custom,c)).steps.includes(1),'can add off-scale note');
+const pasted=copyShape(inverted.chords[0],c.chords[1]);eq(pasted.rootOffset,13,'paste preserves destination root');eq(pasted.intervals,[0,10,18],'paste copies shape');eq(mod(-1),30,'negative wraps');
+const moved=clone(c);moved.tonicStep=-35;eq(synthesize(moved).steps,s.steps,'tonic transposes without changing relative scale');
+for(const count of [6,8,9]){const x=clone(c);const sets=count===6?[[0,1,2],[0,3,4],[0,4,5]]:count===8?[[0,1,2],[3,4,5],[0,6,7]]:[[0,1,2],[3,4,5],[6,7,8]];x.chords.forEach((ch,i)=>{ch.rootOffset=sets[i][0];ch.intervals=sets[i].map(v=>v-sets[i][0]);ch.voicingOffsets=[...ch.intervals];});eq(synthesize(x).steps.length,count,'no forced seven');}
+const empty=clone(c);empty.chords.forEach(ch=>ch.enabled=false);eq(synthesize(empty).steps,[],'empty remains empty');
+const noTonic=clone(c);noTonic.chords.forEach(ch=>ch.rootOffset=mod(ch.rootOffset+1));ok(!synthesize(noTonic).hasTonic&&!synthesize(noTonic).goal,'no tonic fails goal');
+const noLead=clone(c);noLead.constraints.leadingToneSteps={min:1,max:2};ok(!synthesize(noLead).leadingOK,'leading range honored');
+eq(capturedSteps([{step:0,source:'manual'},{step:31,source:'manual'},{step:10,source:'manual'},{step:18,source:'manual'},{step:7,source:'auto'}]),[0,10,18],'capture manual only and octave dedupe');
+const w=defaultWorkspace();w.triad=inverted;eq(decodeWorkspace(JSON.stringify(w)),w,'workspace JSON roundtrip');eq(validateWorkspace(inverted).triad,inverted,'bare spec config import');
+const mutations=[(v:any)=>v.schemaVersion=99,(v:any)=>v.triad.edo=12,(v:any)=>v.triad.tonicStep=NaN,(v:any)=>v.triad.tonicStep=.5,(v:any)=>v.triad.chords.pop(),(v:any)=>v.triad.chords[0].intervals=[0,0,18],(v:any)=>v.triad.chords[0].intervals=[1,10,18],(v:any)=>v.triad.chords[0].voicingOffsets=[0,1,18],(v:any)=>v.triad.chords[0].rootOffset=-1,(v:any)=>v.triad.tuning.frequency=Infinity,(v:any)=>v.triad.chords[0].voicingOffsets[0]=null,(v:any)=>v.triad.chords[0].sourceRatios=['1','5/0','3/2']];
+for(const mutate of mutations){const bad=clone(w);mutate(bad);let rejected=false;try{validateWorkspace(bad);}catch{rejected=true;}ok(rejected,'bad import rejected');}eq(c.chords[0].intervals,[0,10,18],'original intact after validation');
+const base=200,root=400,freqs=[250,300,root],analysis=analyze(freqs,15,root);eq(analysis.frequencies[0],root,'explicit inversion root');const fit=analysis.fits.find(f=>f.limit===5)!;eq(fit.ratios.map(r=>r.p+'/'+r.q),['1/1','5/8','3/4'],'ratios below explicit root');ok(fit.max<1e-9,'inversion root error');ok(analysis.bands.every(b=>Number.isInteger(b.ratio.p)&&Number.isInteger(b.ratio.q)),'negative octave ratios integer');
+console.log('PASS: triad presets, union 6/7/8/9/0 notes, drafts, inversions, root transposition, leading conditions, capture filtering, JSON roundtrip/invalid imports, explicit analysis root');

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {defaultConfig,shareSeedShape,registerSeedDraft,sharedWorkspace,defaultWorkspace,validateWorkspace} from './triad.ts';
+import {ManualInput} from './manual-input.ts';
+const c=defaultConfig();c.chords[1].enabled=false;c.chords[1].intervals=[0,8,18];c.chords[1].voicingOffsets=[0,8,18];
+const common=shareSeedShape(c);assert.deepEqual(common.chords.map(ch=>ch.intervals),[[0,10,18],[0,10,18],[0,10,18]]);assert.deepEqual(common.chords.map(ch=>ch.rootOffset),[0,13,18]);assert.equal(common.chords[1].enabled,false);assert.deepEqual(c.chords[1].intervals,[0,8,18]);
+const edited=registerSeedDraft({id:'A',steps:[-13,0,10],root:0,input:'latch',dirty:true},c);
+assert(edited.chords.every(ch=>ch.voicingOffsets.join(',')==='-13,0,10'));assert.deepEqual(edited.chords.map(ch=>ch.rootOffset),[0,13,18]);
+const w=defaultWorkspace();w.triad=c;assert.deepEqual(validateWorkspace(sharedWorkspace(w)).triad.chords[1].intervals,[0,10,18]);
+const input=new ManualInput();let finish!:(v:boolean)=>void;const unlocked=new Promise<boolean>(r=>finish=r);const played:number[]=[];
+const a=input.press('key',10,false,()=>unlocked,()=>played.push(10));input.cancel('key');finish(true);await a;assert.deepEqual(played,[]);
+let resume!:(v:boolean)=>void;const unlock=new Promise<boolean>(r=>resume=r);
+const b=input.press('pointer',1,false,()=>unlock,()=>played.push(1));const d=input.press('pointer',2,false,()=>unlock,()=>played.push(2));resume(true);await Promise.all([b,d]);assert.deepEqual(played,[2]);
+let release!:(v:boolean)=>void;const wait=new Promise<boolean>(r=>release=r);const stop=input.press('key',3,false,()=>wait,()=>played.push(3));input.clear();release(true);await stop;assert.deepEqual(played,[2]);
+await input.press('next',4,true,()=>Promise.resolve(false),()=>played.push(4));assert.deepEqual(played,[2,4]);
+console.log('PASS: shared seed propagation, legacy normalization, preserved placement roots, first-gesture release/drag/stop cancellation and restart');
